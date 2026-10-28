@@ -1,0 +1,127 @@
+{
+  "default_provider": "groq",
+  "fallbacks": ["openrouter", "groq", "cerebras", "mistral", "huggingface", "github_models", "nvidia_nim"],
+  "providers": {
+    "openrouter": {
+      "id": "openrouter",
+      "label": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://openrouter.ai/settings/keys",
+      "notes": "Modèles gratuits filtrés par suffixe :free ou tarif nul.",
+      "enabled_by_default": true,
+      "fallback_models": ["meta-llama/llama-3.3-8b-instruct:free", "deepseek/deepseek-r1:free"]
+    },
+    "groq": {
+      "id": "groq",
+      "label": "Groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://console.groq.com/keys",
+      "notes": "Quota gratuit selon les conditions du fournisseur.",
+      "enabled_by_default": true,
+      "fallback_models": ["llama-3.1-8b-instant", "openai/gpt-oss-20b"]
+    },
+    "cerebras": {
+      "id": "cerebras",
+      "label": "Cerebras",
+      "base_url": "https://api.cerebras.ai/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://cloud.cerebras.ai",
+      "notes": "Accès gratuit soumis aux limites du compte.",
+      "enabled_by_default": true,
+      "fallback_models": ["llama-3.3-70b"]
+    },
+    "mistral": {
+      "id": "mistral",
+      "label": "Mistral",
+      "base_url": "https://api.mistral.ai/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://console.mistral.ai",
+      "notes": "Vérifier les limites et crédits du compte.",
+      "enabled_by_default": true,
+      "fallback_models": ["mistral-small-latest"]
+    },
+    "huggingface": {
+      "id": "huggingface",
+      "label": "Hugging Face",
+      "base_url": "https://api-inference.huggingface.co/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://huggingface.co/settings/tokens",
+      "notes": "Les modèles disponibles dépendent du compte et du routage HF.",
+      "enabled_by_default": true,
+      "fallback_models": ["meta-llama/Llama-3.1-8B-Instruct"]
+    },
+    "cloudflare": {
+      "id": "cloudflare",
+      "label": "Cloudflare Workers AI",
+      "base_url": "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://dash.cloudflare.com",
+      "notes": "Remplacer {ACCOUNT_ID} dans le panneau avant utilisation.",
+      "enabled_by_default": false,
+      "fallback_models": ["@cf/meta/llama-3.1-8b-instruct"]
+    },
+    "github_models": {
+      "id": "github_models",
+      "label": "GitHub Models",
+      "base_url": "https://models.github.ai/inference",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://github.com/settings/tokens",
+      "notes": "Un token GitHub avec l'accès Models peut être requis.",
+      "enabled_by_default": true,
+      "fallback_models": ["openai/gpt-4o-mini"]
+    },
+    "nvidia_nim": {
+      "id": "nvidia_nim",
+      "label": "NVIDIA NIM",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://build.nvidia.com",
+      "notes": "Disponibilité gratuite à vérifier selon le modèle.",
+      "enabled_by_default": true,
+      "fallback_models": ["meta/llama-3.1-8b-instruct"]
+    },
+    "opencode": {
+      "id": "opencode",
+      "label": "OpenCode (à vérifier)",
+      "base_url": "TODO: vérifier",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://opencode.ai",
+      "notes": "TODO: vérifier l'API officielle et l'URL de clé ; fournisseur désactivé.",
+      "enabled_by_default": false,
+      "fallback_models": []
+    },
+    "freellmapi": {
+      "id": "freellmapi",
+      "label": "FreeLLMAPI (à vérifier)",
+      "base_url": "TODO: vérifier",
+      "models_path": "/models",
+      "auth_header": "Authorization",
+      "free_key_url": "https://freellmapi.com",
+      "notes": "TODO: vérifier la documentation officielle ; fournisseur désactivé.",
+      "enabled_by_default": false,
+      "fallback_models": []
+    },
+    "ollama": {
+      "id": "ollama",
+      "label": "Ollama (local, hors-ligne)",
+      "base_url": "http://localhost:11434/v1",
+      "models_path": "/models",
+      "auth_header": "",
+      "free_key_url": "https://ollama.com",
+      "notes": "Aucune clé ; le serveur local doit être démarré.",
+      "enabled_by_default": true,
+      "fallback_models": ["llama3.2", "qwen2.5:7b"]
+    }
+  }
+}
