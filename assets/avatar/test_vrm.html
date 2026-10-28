@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test VRM — Sarra (visèmes + expressions)</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    body { font-family: Consolas, monospace; color: #fff; }
+    #scene { position: fixed; inset: 0; pointer-events: auto; }
+    #scene canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    #scene canvas:active { cursor: grabbing; }
+    #panel {
+      position: fixed; top: 10px; right: 10px; width: 330px; max-height: 94vh;
+      overflow-y: auto; background: rgba(0,0,0,0.92); padding: 14px; border-radius: 8px;
+      font-size: 12px;
+    }
+    #panel h3 { margin: 0 0 8px; font-size: 14px; color: #0af; }
+    #panel h4 { margin: 12px 0 6px; font-size: 12px; color: #7fd8ff; }
+    .info { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+    #statut { font-size: 11px; color: #72ffb0; margin-bottom: 8px; min-height: 15px; }
+    .slider-group { margin: 6px 0; }
+    .slider-group label { display: flex; justify-content: space-between; font-size: 11px; }
+    .slider-group input[type="range"] { width: 100%; }
+    .slider-group span { color: #0f0; }
+    .visemes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 6px 0; }
+    button {
+      background: #0066cc; color: #fff; border: none; padding: 7px 6px;
+      border-radius: 4px; cursor: pointer; font: inherit; font-size: 11px;
+    }
+    button:hover { background: #0052a3; }
+    button.actif { background: #00aa66; }
+    #drop { border: 1px dashed #08708c; border-radius: 5px; padding: 8px; margin: 8px 0;
+      font-size: 11px; color: #9fd8ff; text-align: center; }
+    .row { display: flex; gap: 4px; margin: 6px 0; }
+    .row button { flex: 1; }
+    label.check { display: block; font-size: 11px; margin: 6px 0; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.7/lib/three-vrm.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+  <div id="panel">
+    <h3>Test VRM — visèmes + expressions</h3>
+    <div class="info">Glissez un .vrm ici, ou laissez le chargement auto de ./sarra.vrm.</div>
+    <div id="drop">Déposez un fichier .vrm<br/>ou <input id="fichier" type="file" accept=".vrm" /></div>
+    <div id="statut">En attente du modèle…</div>
+    <h4>Visèmes 0–14 (même table que Mark-LV)</h4>
+    <div class="visemes" id="visemes"></div>
+    <div class="row">
+      <button id="demo">▶ Lecture auto 0→14</button>
+      <button id="repos">Repos (silence)</button>
+    </div>
+    <h4>Bouche (presets VRM directs)</h4>
+    <div id="sliders-bouche"></div>
+    <h4>Émotions / yeux (selon modèle)</h4>
+    <div id="sliders-autres"></div>
+    <label class="check"><input id="regard" type="checkbox" checked /> Regard vers la caméra</label>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    let VRMLoaderPlugin = null, VRMUtils = null; // chargés en différé (CDN fragile)
+
+    // Même table 14 -> 5 que app.js : le test valide ce que Mark-LV enverra.
+    const TABLE_VRM_14 = {
+      0: [], 1: [], 2: [['ih', 0.5]], 3: [['ih', 0.4]], 4: [['aa', 0.35]],
+      5: [['aa', 0.45]], 6: [['oh', 0.7]], 7: [['ih', 0.6]], 8: [['aa', 0.3]],
+      9: [['ou', 0.5]], 10: [['aa', 1.0]], 11: [['ee', 1.0]], 12: [['ih', 1.0]],
+      13: [['oh', 1.0]], 14: [['ou', 1.0]],
+    };
+    const NOMS_VISEMES = ['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'I', 'O', 'U'];
+    const BOUCHE = ['aa', 'ih', 'ou', 'ee', 'oh'];
+
+    const statut = document.getElementById('statut');
+    const dire = (t) => { statut.textContent = t; };
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 50);
+    camera.position.set(0, 1.3, 2.6);
+    const rendu = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    rendu.setClearColor(0x000000, 0);
+    rendu.setSize(window.innerWidth, window.innerHeight);
+    rendu.toneMapping = THREE.ACESFilmicToneMapping;
+    rendu.outputColorSpace = THREE.SRGBColorSpace;
+    document.getElementById('scene').appendChild(rendu.domElement);
+    const controles = new OrbitControls(camera, rendu.domElement);
+    controles.target.set(0, 1.0, 0);
+    controles.enableDamping = true;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 0.9));
+    const clef = new THREE.DirectionalLight(0xffffff, 1.6);
+    clef.position.set(2, 3, 2.5);
+    scene.add(clef);
+    const pmrem = new THREE.PMREMGenerator(rendu);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const chargeur = new GLTFLoader(); // plugin VRM enregistré après import réussi
+    let vrm = null;
+    let minuteurDemo = null;
+
+    function cadrer() {
+      // Cadre le corps entier (VRM en mètres) : boîte englobante -> distance caméra.
+      const box = new THREE.Box3().setFromObject(vrm.scene);
+      const centre = box.getCenter(new THREE.Vector3());
+      const taille = box.getSize(new THREE.Vector3()).length();
+      const dist = Math.max(0.8, taille / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.05);
+      camera.position.set(centre.x, centre.y + taille * 0.06, centre.z + dist);
+      controles.target.copy(centre);
+      controles.update();
+    }
+
+    function construireSliders() {
+      // Sliders générés depuis les presets RÉELS du modèle : marche avec tout VRM.
+      const noms = Object.keys(vrm.expressionManager.presetExpressionMap);
+      const zb = document.getElementById('sliders-bouche');
+      const za = document.getElementById('sliders-autres');
+      zb.innerHTML = ''; za.innerHTML = '';
+      for (const nom of noms) {
+        const g = document.createElement('div');
+        g.className = 'slider-group';
+        const lab = document.createElement('label');
+        lab.innerHTML = `<span>${nom}</span><span>0.00</span>`;
+        const val = lab.querySelectorAll('span')[1];
+        const s = document.createElement('input');
+        s.type = 'range'; s.min = 0; s.max = 1; s.step = 0.01; s.value = 0;
+        s.addEventListener('input', () => {
+          vrm.expressionManager.setValue(nom, parseFloat(s.value));
+          val.textContent = parseFloat(s.value).toFixed(2);
+        });
+        g.appendChild(lab); g.appendChild(s);
+        (BOUCHE.includes(nom) ? zb : za).appendChild(g);
+      }
+    }
+
+    function appliquerViseme(id) {
+      // Reproduit window.updateViseme() de app.js : zéro puis presets tablés.
+      for (const p of BOUCHE) vrm.expressionManager.setValue(p, 0);
+      for (const [preset, poids] of (TABLE_VRM_14[id] || [])) {
+        vrm.expressionManager.setValue(preset, poids);
+      }
+      dire(`Visème ${id} (${NOMS_VISEMES[id]}) — presets actifs visibles sur le visage.`);
+      document.querySelectorAll('#visemes button').forEach((b, i) =>
+        b.classList.toggle('actif', i === id));
+    }
+
+    async function chargerVRM(source, etiquette) {
+      try {
+        const gltf = (typeof source === 'string')
+          ? await chargeur.loadAsync(source)
+          : await chargeur.parseAsync(await source.arrayBuffer(), '');
+        const cand = gltf.userData && gltf.userData.vrm;
+        if (!cand) { dire(`Échec : ${etiquette} n'est pas un VRM valide.`); return; }
+        if (vrm) { scene.remove(vrm.scene); VRMUtils.deepDispose(vrm.scene); }
+        vrm = cand;
+        try {
+          if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+        } catch (_) { /* orientation d'origine conservée */ }
+        vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+        scene.add(vrm.scene);
+        if (vrm.lookAt) vrm.lookAt.target = camera;
+        construireSliders();
+        cadrer();
+        const titre = (vrm.meta && (vrm.meta.title || vrm.meta.name)) || etiquette;
+        dire(`Chargé : ${titre} (VRM ${vrm.meta.metaVersion}) — cliquez les visèmes 0–14.`);
+      } catch (e) {
+        console.error(e);
+        dire(`Échec chargement ${etiquette} : ${e.message || e}`);
+      }
+    }
+
+    // Boutons visèmes 0–14.
+    const zv = document.getElementById('visemes');
+    for (let i = 0; i <= 14; i++) {
+      const b = document.createElement('button');
+      b.textContent = `${i}:${NOMS_VISEMES[i]}`;
+      b.addEventListener('click', () => { if (vrm) appliquerViseme(i); });
+      zv.appendChild(b);
+    }
+    document.getElementById('repos').addEventListener('click', () => { if (vrm) appliquerViseme(0); });
+    document.getElementById('demo').addEventListener('click', (e) => {
+      if (!vrm) return;
+      if (minuteurDemo) { clearInterval(minuteurDemo); minuteurDemo = null; e.target.textContent = '▶ Lecture auto 0→14'; return; }
+      let i = 0;
+      e.target.textContent = '⏸ Stop';
+      minuteurDemo = setInterval(() => { appliquerViseme(i % 15); i++; }, 350);
+    });
+    document.getElementById('regard').addEventListener('change', (e) => {
+      if (vrm && vrm.lookAt) vrm.lookAt.target = e.target.checked ? camera : null;
+    });
+
+    // Dépôt .vrm : fichier local ou glisser-déposer.
+    document.getElementById('fichier').addEventListener('change', (e) => {
+      if (e.target.files[0]) chargerVRM(e.target.files[0], e.target.files[0].name);
+    });
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) chargerVRM(f, f.name);
+    });
+
+    // Boucle : spring bones + regard + expressions, comme app.js.
+    let dernier = performance.now();
+    function boucle() {
+      requestAnimationFrame(boucle);
+      const maintenant = performance.now();
+      const dt = Math.min(0.1, (maintenant - dernier) / 1000);
+      dernier = maintenant;
+      if (vrm) {
+        try { vrm.update(dt); } catch (_) { /* spring bones optionnels */ }
+        try { vrm.expressionManager.update(); } catch (_) { /* sans danger */ }
+      }
+      controles.update();
+      rendu.render(scene, camera);
+    }
+    boucle();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      rendu.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Démarrage : import différé (un CDN en panne = message clair, pas page blanche).
+    (async () => {
+      if (window.location.protocol === 'file:') {
+        dire('ATTENTION : page ouverte en file:// — ./sarra.vrm auto ne chargera pas. '
+          + 'Servez le dossier en HTTP ou glissez-déposez le .vrm.');
+      }
+      try {
+        const mod = await import('three-vrm');
+        VRMLoaderPlugin = mod.VRMLoaderPlugin;
+        VRMUtils = mod.VRMUtils;
+      } catch (e) {
+        dire('three-vrm injoignable (CDN bloqué ?) : ' + (e && e.message || e)
+          + ' — glissez-déposez quand même, ou réessayez en ligne.');
+        return;
+      }
+      if (!VRMLoaderPlugin) { dire('three-vrm chargé mais incomplet.'); return; }
+      chargeur.register((parser) => new VRMLoaderPlugin(parser));
+      // Auto : ./sarra.vrm du dossier avatar (même origine : pas de souci CORS).
+      chargerVRM('./sarra.vrm', 'sarra.vrm');
+    })();
+  </script>
+</body>
+</html>

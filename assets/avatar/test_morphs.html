@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Test Morph Targets - Sarra (Multi-Mesh)</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #1a1a2e; color: #fff; }
+    #scene { position: fixed; inset: 0; }
+    #controls {
+      position: fixed; top: 10px; right: 10px; width: 350px; max-height: 90vh;
+      overflow-y: auto; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 8px;
+    }
+    .mesh-section {
+      margin: 15px 0; padding: 10px; border: 1px solid #333; border-radius: 5px;
+    }
+    .mesh-section h4 {
+      margin: 0 0 10px 0; font-size: 13px; color: #0af;
+    }
+    .slider-group { margin: 8px 0; }
+    .slider-group label { display: block; font-size: 11px; margin-bottom: 3px; }
+    .slider-group input[type="range"] { width: 100%; }
+    .slider-group span { font-size: 10px; color: #0f0; }
+    h3 { margin: 0 0 15px 0; font-size: 14px; }
+    button {
+      background: #0066cc; color: #fff; border: none; padding: 8px 15px;
+      border-radius: 4px; cursor: pointer; margin: 5px 0; width: 100%;
+    }
+    button:hover { background: #0052a3; }
+    .info { font-size: 11px; color: #aaa; margin-bottom: 10px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+  <div id="controls">
+    <h3>Test Multi-Mesh Morph Targets</h3>
+    <div class="info">Testez chaque mesh pour trouver le visage</div>
+    <button id="reset">Réinitialiser tous les sliders</button>
+    <div id="sliders"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.5, 2.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.getElementById('scene').appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Éclairage
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(2, 3, 2);
+    scene.add(dirLight);
+
+    const allMeshes = [];
+    const allSliders = [];
+
+    // Charger le modèle
+    new GLTFLoader().load('./sarra.glb', (gltf) => {
+      const model = gltf.scene;
+      
+      // Agrandir le modèle
+      model.scale.set(6, 6, 6);
+      model.position.set(0, -0.8, 0);
+      
+      // Trouver TOUS les mesh avec morph targets
+      let meshIndex = 0;
+      model.traverse((obj) => {
+        if (obj.isMesh && obj.morphTargetInfluences && obj.morphTargetInfluences.length > 0) {
+          const count = obj.morphTargetInfluences.length;
+          console.log(`Mesh ${meshIndex}: ${count} morph targets`);
+          
+          // Créer une section pour ce mesh
+          const section = document.createElement('div');
+          section.className = 'mesh-section';
+          
+          const title = document.createElement('h4');
+          title.textContent = `Mesh ${meshIndex} (${count} morphs)`;
+          section.appendChild(title);
+          
+          const slidersContainer = document.createElement('div');
+          
+          // Créer des sliders (limiter aux 20 premiers pour éviter de surcharger)
+          const maxSliders = Math.min(count, 30);
+          for (let i = 0; i < maxSliders; i++) {
+            const group = document.createElement('div');
+            group.className = 'slider-group';
+
+            const label = document.createElement('label');
+            label.textContent = `Morph ${i}`;
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = 0;
+            slider.max = 1;
+            slider.step = 0.01;
+            slider.value = 0;
+
+            const value = document.createElement('span');
+            value.textContent = '0.00';
+
+            slider.addEventListener('input', (e) => {
+              const val = parseFloat(e.target.value);
+              obj.morphTargetInfluences[i] = val;
+              value.textContent = val.toFixed(2);
+            });
+
+            group.appendChild(label);
+            group.appendChild(slider);
+            group.appendChild(value);
+            slidersContainer.appendChild(group);
+
+            allSliders.push({ mesh: obj, index: i, slider, value });
+          }
+          
+          section.appendChild(slidersContainer);
+          document.getElementById('sliders').appendChild(section);
+          
+          allMeshes.push({ index: meshIndex, mesh: obj, count });
+          meshIndex++;
+        }
+      });
+
+      console.log(`Total: ${allMeshes.length} mesh avec morph targets`);
+      scene.add(model);
+    });
+
+    // Bouton reset
+    document.getElementById('reset').addEventListener('click', () => {
+      allSliders.forEach(({ mesh, index, slider, value }) => {
+        slider.value = 0;
+        value.textContent = '0.00';
+        mesh.morphTargetInfluences[index] = 0;
+      });
+    });
+
+    // Animation
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

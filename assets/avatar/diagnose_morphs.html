@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Diagnostic Morph Targets - Sarra</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #1a1a2e; color: #fff; }
+    #scene { position: fixed; inset: 0; }
+    #controls {
+      position: fixed; top: 10px; right: 10px; width: 350px; max-height: 90vh;
+      overflow-y: auto; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 8px;
+    }
+    .phase { margin: 20px 0; padding: 15px; border: 1px solid #444; border-radius: 5px; }
+    .phase h3 { margin: 0 0 15px 0; font-size: 14px; color: #0af; }
+    .mesh-btn {
+      background: #333; color: #fff; border: 1px solid #555; padding: 10px;
+      border-radius: 4px; cursor: pointer; margin: 5px 0; width: 100%;
+      font-size: 12px;
+    }
+    .mesh-btn:hover { background: #444; }
+    .mesh-btn.active { background: #0066cc; border-color: #0088ff; }
+    .slider-group { margin: 8px 0; }
+    .slider-group label { display: block; font-size: 11px; margin-bottom: 3px; }
+    .slider-group input[type="range"] { width: 100%; }
+    .slider-group span { font-size: 10px; color: #0f0; }
+    button {
+      background: #0066cc; color: #fff; border: none; padding: 8px 15px;
+      border-radius: 4px; cursor: pointer; margin: 5px 0; width: 100%;
+    }
+    button:hover { background: #0052a3; }
+    .info { font-size: 11px; color: #aaa; margin-bottom: 10px; }
+    .result { background: #0a3; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 12px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+  <div id="controls">
+    <h2>Diagnostic Morph Targets</h2>
+    
+    <div class="phase">
+      <h3>Phase 1 : Identifier le mesh du visage</h3>
+      <div class="info">Cliquez sur chaque bouton pour activer TOUS les morphs d'un mesh. Celui qui fait bouger le VISAGE est le bon.</div>
+      <div id="mesh-buttons"></div>
+      <button id="reset-all">Réinitialiser tout</button>
+    </div>
+
+    <div class="phase" id="phase2" style="display:none;">
+      <h3>Phase 2 : Identifier les expressions</h3>
+      <div class="info">Testez chaque slider pour trouver les expressions faciales</div>
+      <div id="morph-sliders"></div>
+      <button id="export-mapping">Exporter le mapping</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.5, 2.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.getElementById('scene').appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(2, 3, 2);
+    scene.add(dirLight);
+
+    const allMeshes = [];
+    let selectedMesh = null;
+
+    // Charger le modèle
+    new GLTFLoader().load('./sarra.glb', (gltf) => {
+      const model = gltf.scene;
+      model.scale.set(6, 6, 6);
+      model.position.set(0, -0.8, 0);
+      
+      let meshIndex = 0;
+      model.traverse((obj) => {
+        if (obj.isMesh && obj.morphTargetInfluences && obj.morphTargetInfluences.length > 0) {
+          const count = obj.morphTargetInfluences.length;
+          allMeshes.push({ index: meshIndex, mesh: obj, count });
+          
+          // Créer un bouton pour ce mesh
+          const btn = document.createElement('button');
+          btn.className = 'mesh-btn';
+          btn.textContent = `Mesh ${meshIndex} (${count} morphs) - Tester`;
+          btn.addEventListener('click', () => testAllMorphs(obj, meshIndex, btn));
+          document.getElementById('mesh-buttons').appendChild(btn);
+          
+          meshIndex++;
+        }
+      });
+
+      console.log(`Total: ${allMeshes.length} mesh avec morph targets`);
+      scene.add(model);
+    });
+
+    function testAllMorphs(mesh, meshIndex, btn) {
+      // Réinitialiser tous les mesh
+      allMeshes.forEach(m => {
+        for (let i = 0; i < m.mesh.morphTargetInfluences.length; i++) {
+          m.mesh.morphTargetInfluences[i] = 0;
+        }
+      });
+      
+      // Activer tous les morphs du mesh sélectionné à 0.5
+      for (let i = 0; i < mesh.morphTargetInfluences.length; i++) {
+        mesh.morphTargetInfluences[i] = 0.5;
+      }
+      
+      // Mettre en surbrillance le bouton
+      document.querySelectorAll('.mesh-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      console.log(`✅ Mesh ${meshIndex} activé avec tous les morphs à 0.5`);
+      
+      // Afficher la phase 2
+      document.getElementById('phase2').style.display = 'block';
+      selectedMesh = mesh;
+      createMorphSliders(mesh);
+    }
+
+    function createMorphSliders(mesh) {
+      const container = document.getElementById('morph-sliders');
+      container.innerHTML = '';
+      
+      const count = mesh.morphTargetInfluences.length;
+      const maxSliders = Math.min(count, 50); // Limiter à 50 pour la performance
+      
+      for (let i = 0; i < maxSliders; i++) {
+        const group = document.createElement('div');
+        group.className = 'slider-group';
+
+        const label = document.createElement('label');
+        label.textContent = `Morph ${i}`;
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0;
+        slider.max = 1;
+        slider.step = 0.01;
+        slider.value = 0;
+
+        const value = document.createElement('span');
+        value.textContent = '0.00';
+
+        slider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          mesh.morphTargetInfluences[i] = val;
+          value.textContent = val.toFixed(2);
+        });
+
+        group.appendChild(label);
+        group.appendChild(slider);
+        group.appendChild(value);
+        container.appendChild(group);
+      }
+    }
+
+    // Bouton reset
+    document.getElementById('reset-all').addEventListener('click', () => {
+      allMeshes.forEach(m => {
+        for (let i = 0; i < m.mesh.morphTargetInfluences.length; i++) {
+          m.mesh.morphTargetInfluences[i] = 0;
+        }
+      });
+      document.querySelectorAll('.mesh-btn').forEach(b => b.classList.remove('active'));
+    });
+
+    // Bouton export
+    document.getElementById('export-mapping').addEventListener('click', () => {
+      if (!selectedMesh) return;
+      
+      const mapping = {
+        meshIndex: allMeshes.findIndex(m => m.mesh === selectedMesh),
+        morphCount: selectedMesh.morphTargetInfluences.length,
+        activeMorphs: {}
+      };
+      
+      for (let i = 0; i < selectedMesh.morphTargetInfluences.length; i++) {
+        const val = selectedMesh.morphTargetInfluences[i];
+        if (val > 0.1) {
+          mapping.activeMorphs[`morph_${i}`] = val;
+        }
+      }
+      
+      const json = JSON.stringify(mapping, null, 2);
+      console.log('Mapping:', json);
+      navigator.clipboard.writeText(json).then(() => {
+        alert('Mapping copié ! Collez-le dans votre réponse.');
+      });
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
