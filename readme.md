@@ -5,10 +5,26 @@
 <h1 align="center">Sarra7</h1>
 <p align="center"><strong>A voice-first AI companion for your desktop</strong></p>
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=Rb-d53cW6qM">Watch the demo</a>
+  <a href="https://www.youtube.com/watch?v=Rb-d53cW6qM">▶ Watch the demo on YouTube</a>
   ·
   <a href="https://github.com/dvdexpresstunisia/Sarra7">Source code</a>
 </p>
+
+## Project showcase
+
+### Sarra7 — concept and presentation
+
+<p align="center">
+  <img src="sarra-presentation.png" alt="Sarra7 visual presentation: Sarra avatar on a desktop monitor" width="100%">
+</p>
+
+### Application screenshot
+
+<p align="center">
+  <img src="assets/sarra7-app-screenshot.jpg" alt="Sarra7 application interface with avatar, activity log, file upload and command input" width="100%">
+</p>
+
+**[Watch the full demonstration video](https://www.youtube.com/watch?v=Rb-d53cW6qM)**
 
 Sarra7 is a desktop AI assistant built around natural voice interaction, a visual avatar, and a collection of tools that can help users work with their computer. It combines a Python desktop application with Gemini Live, an avatar interface, local memory, and action modules.
 
@@ -73,7 +89,7 @@ Tests do not replace manual testing with your own microphone, audio devices, bro
 
 ## Demo
 
-[Watch Sarra7 in action on YouTube](https://www.youtube.com/watch?v=Rb-d53cW6qM).
+[▶ Watch Sarra7 in action on YouTube](https://www.youtube.com/watch?v=Rb-d53cW6qM).
 
 ## Privacy and safety notes
 
