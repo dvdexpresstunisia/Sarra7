@@ -21,7 +21,7 @@
 ### Application screenshot
 
 <p align="center">
-  <img src="assets/sarra7-app-screenshot.jpg" alt="Sarra7 application interface with avatar, activity log, file upload and command input" width="100%">
+  <img src="assets/sarra7-app-screenshot.jpg.png" alt="Sarra7 application interface with avatar, activity log, file upload and command input" width="100%">
 </p>
 
 **[Watch the full demonstration video](https://www.youtube.com/watch?v=Rb-d53cW6qM)**
