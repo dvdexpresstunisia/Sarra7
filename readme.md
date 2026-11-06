@@ -13,7 +13,7 @@ Ce README décrit **Sarra telle qu’elle est développée dans ce projet**. Il 
 ## Vidéo de présentation
 
 Découvrez Sarra en vidéo :
-
+![Sarra](sarra7.png)
 [▶️ Regarder la vidéo de Sarra sur YouTube](https://www.youtube.com/watch?v=ui12SkdUo-M)
 
 ## Présentation
